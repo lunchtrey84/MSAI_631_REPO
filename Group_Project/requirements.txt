@@ -1,0 +1,15 @@
+# The saved TF-IDF pickle was trained with scikit-learn 1.6.1.
+scikit-learn==1.6.1
+pandas>=2.2,<3.0
+numpy>=1.26,<3.0
+joblib>=1.4,<2.0
+gradio>=5.0,<7.0
+matplotlib>=3.8,<4.0
+python-dotenv>=1.0,<2.0
+
+# Testing
+pytest>=8.0,<10.0
+
+# Add sentence-transformers after the MiniLM integration is finalized.
+# sentence-transformers>=3.0,<6.0
+
