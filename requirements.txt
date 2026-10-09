@@ -1,5 +1,0 @@
-gradio==6.30.0
-pandas>=2.2,<4
-scikit-learn==1.6.1
-joblib>=1.4,<2
-numpy>=2,<3
