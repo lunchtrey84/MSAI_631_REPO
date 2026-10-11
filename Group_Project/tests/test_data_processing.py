@@ -1,47 +1,176 @@
-import pytest
+"""Tests for the integrated career-recommendation interface."""
 
-from data_processing import (
-    ProfileValidationError,
-    normalize_text,
-    prepare_profile_from_mapping,
-    prepare_user_profile,
+import gradio as gr
+
+from app import (
+    EMPTY_DETAILS,
+    career_choices,
+    choose_career,
+    clear_profile,
+    details_html,
+    edit_profile,
+    rank_careers,
+    recommend,
+    recommend_pages,
+    select_career,
 )
 
 
-def test_normalize_text_removes_markup_and_extra_whitespace():
-    assert normalize_text("  leadership  <b>and</b>  training\n") == (
-        "leadership and training"
-    )
+TFIDF_PROFILE = [
+    "Bachelor's degree",
+    "Python, Excel, statistics",
+    "Data analysis and problem solving",
+    "2 years in business reporting",
+    "Explore analytics roles",
+    "",
+    "tfidf",
+]
+
+MINILM_PROFILE = [
+    "Master's degree",
+    "Leadership, communication, planning, training, critical thinking",
+    "Technology, education, and management",
+    "More than ten years of professional experience",
+    "Leadership, management, training, and technology",
+    "",
+    "minilm",
+]
 
 
-def test_prepare_user_profile_labels_each_value():
-    result = prepare_user_profile(
-        education="Master's degree",
-        skills=["leadership", "Python"],
-        interests="technology and education",
-        work_experience="Five years",
-        career_goals="technical leadership",
-    )
+def test_tfidf_returns_five_recommendations():
+    matches = rank_careers(*TFIDF_PROFILE)
 
-    assert "Education: Master's degree." in result
-    assert "Skills: leadership, Python." in result
-    assert "Interests: technology and education." in result
-    assert "Experience: Five years." in result
-    assert "Career goals: technical leadership." in result
+    assert len(matches) == 5
 
+    required_columns = {
+        "O*NET-SOC Code",
+        "Title",
+        "Description",
+        "Education",
+        "Experience",
+        "Similarity score",
+    }
 
-def test_profile_requires_meaningful_matching_information():
-    with pytest.raises(ProfileValidationError):
-        prepare_user_profile(education="Bachelor's degree")
+    assert required_columns.issubset(matches[0].keys())
 
 
-def test_mapping_ignores_unexpected_keys():
-    result = prepare_profile_from_mapping(
+def test_minilm_returns_five_recommendations():
+    matches = rank_careers(*MINILM_PROFILE)
+
+    assert len(matches) == 5
+    assert all(match["Similarity score"] >= 0 for match in matches)
+
+
+def test_different_profiles_produce_different_results():
+    analytics_matches = rank_careers(*TFIDF_PROFILE)
+
+    healthcare_profile = [
+        "Bachelor's degree",
+        "Nursing, patient care, medicine, communication",
+        "Healthcare and helping patients",
+        "Experience working in a hospital",
+        "Explore nursing and healthcare careers",
+        "",
+        "tfidf",
+    ]
+
+    healthcare_matches = rank_careers(*healthcare_profile)
+
+    assert analytics_matches[0]["Title"] != healthcare_matches[0]["Title"]
+
+
+def test_invalid_search_clears_previous_results():
+    invalid_profiles = [
+        [None, "", "", "", "", "", "tfidf"],
+        ["Bachelor's degree", "", "", "", "", "", "minilm"],
+        [None, "x" * 4001, "", "", "", "", "tfidf"],
+    ]
+
+    for profile in invalid_profiles:
+        state, rows, details, status = recommend(*profile)
+
+        assert state == []
+        assert rows == []
+        assert details == EMPTY_DETAILS
+        assert status
+
+
+def test_details_escape_html_and_handle_missing_values():
+    markup = details_html(
         {
-            "skills": "communication and analysis",
-            "career_goals": "data analyst",
-            "unexpected": "ignored",
+            "Title": "<script>bad</script>",
+            "O*NET-SOC Code": "15-2051.00",
         }
     )
-    assert "unexpected" not in result
-    assert "Skills: communication and analysis." in result
+
+    assert "<script>" not in markup
+    assert "&lt;script&gt;" in markup
+    assert "Not available in the dataset" in markup
+
+
+def test_clear_profile_removes_inputs_and_results():
+    result = clear_profile()
+
+    assert result[0] is None
+    assert result[1:6] == ("", "", "", "", "")
+    assert result[6] == "minilm"
+    assert result[7:9] == ([], [])
+    assert result[9] == EMPTY_DETAILS
+
+
+def test_each_result_can_display_its_details():
+    matches = rank_careers(*TFIDF_PROFILE)
+
+    for index, match in enumerate(matches):
+        event = gr.SelectData(
+            None,
+            {
+                "index": [index, 1],
+                "value": match["Title"],
+                "selected": True,
+            },
+        )
+
+        selected_details = select_career(matches, event)
+
+        assert match["O*NET-SOC Code"] in selected_details
+
+
+def test_navigation_requires_successful_search():
+    valid = recommend_pages(*TFIDF_PROFILE)
+
+    assert valid[4]["visible"] is False
+    assert valid[5]["visible"] is True
+
+    invalid = recommend_pages(
+        None,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "tfidf",
+    )
+
+    assert invalid[4]["visible"] is True
+    assert invalid[5]["visible"] is False
+    assert invalid[6]["visible"] is True
+
+    back = edit_profile()
+
+    assert back[0]["visible"] is True
+    assert back[1]["visible"] is False
+
+
+def test_career_picker_matches_recommendations():
+    matches = rank_careers(*TFIDF_PROFILE)
+    choices = career_choices(matches)
+
+    assert len(choices["choices"]) == 5
+
+    for index, match in enumerate(matches):
+        details = choose_career(str(index), matches)
+        assert match["O*NET-SOC Code"] in details
+
+    assert career_choices([])["choices"] == []
+    assert choose_career(None, []) == EMPTY_DETAILS
