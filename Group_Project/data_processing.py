@@ -39,7 +39,7 @@ class UserProfile:
             "education": "Education",
             "skills": "Skills",
             "interests": "Interests",
-            "work_experience": "Work experience",
+            "work_experience": "Experience",
             "career_goals": "Career goals",
             "additional_information": "Additional information",
         }
