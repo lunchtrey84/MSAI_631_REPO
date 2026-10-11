@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from data_processing import prepare_user_profile
-from model import recommend_careers
+from Model.model import recommend_careers
 
 ROOT = Path(__file__).resolve().parent
 FIELDS = ["Education", "Skills", "Interests", "Experience", "Career goals", "Additional information"]
@@ -205,7 +205,7 @@ def app_theme():
 
 UI_JS = '''() => {
     window.careerTheme = (mode) => {
-        const dark = mode === 'Dark' || (mode === 'System' and matchMedia('(prefers-color-scheme: dark)').matches);
+        const dark = mode === 'Dark' || (mode === 'System' && matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.classList.toggle('dark', dark);
         document.body.classList.toggle('dark', dark);
         document.querySelectorAll('gradio-app').forEach(el => el.classList.toggle('dark', dark));
@@ -339,4 +339,12 @@ def build_app():
 
 
 if __name__ == "__main__":
-    build_app().queue().launch(server_name="127.0.0.1", server_port=int(os.environ.get("PORT", "7860")), theme=app_theme(), css=CSS, js=UI_JS)
+    share = os.getenv("CAREER_APP_SHARE", "false").lower() == "true"
+    build_app().queue().launch(
+        server_name="127.0.0.1",
+        server_port=int(os.environ.get("PORT", "7860")),
+        theme=app_theme(),
+        css=CSS,
+        js=UI_JS,
+        share=share
+    )
