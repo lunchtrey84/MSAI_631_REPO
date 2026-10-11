@@ -1,72 +1,101 @@
 # AI Career and Education Recommendation Assistant
 
 This group project is a human-centered career recommendation application for
-MSAI-631-A01. A user describes their education, skills, interests, work
-experience, and goals. The application converts that information into a
-profile, compares it with O*NET career records, and presents the five closest
-career matches with understandable supporting information.
+MSAI-631-A01. Users describe their education, skills, interests, professional
+experience, and career goals. The application converts the information into a
+structured text profile, compares that profile with O*NET occupational records,
+and displays the five closest career matches with supporting information.
+
+The system is intended to support career exploration and decision-making. It
+does not predict whether a person will succeed in a particular occupation and
+should not replace professional career counseling.
 
 ## Current status
 
-The current baseline uses TF-IDF features and cosine similarity. Trey trained
-the model on 1,016 O*NET 31.0 career records and generated the three artifacts
-stored in `Model/`. An all-MiniLM-L6-v2 semantic model is planned and can be
-added without changing the input-processing interface.
+The application supports two recommendation approaches. TF-IDF with cosine
+similarity remains available as the baseline model, while
+`all-MiniLM-L6-v2` is the primary semantic recommendation model.
+
+Both models receive the same normalized user-profile text and return the five
+occupations with the highest similarity scores. The project includes the
+processed O*NET career dataset, TF-IDF artifacts, MiniLM embeddings, model
+logic, data-processing utilities, configuration settings, dependencies, and
+automated data-processing tests.
+
+The MiniLM model captures semantic relationships between the user profile and
+career descriptions instead of relying only on exact word overlap. If the
+saved local MiniLM model directory is unavailable, the application loads
+`sentence-transformers/all-MiniLM-L6-v2` through the Sentence Transformers
+library.
 
 ## Application flow
 
-1. The user enters profile information in the interface.
-2. `data_processing.py` cleans and validates the values.
-3. The application creates one labeled text profile.
-4. The selected model transforms the profile.
-5. Similarity scores rank the O*NET occupations.
-6. The interface displays the top five careers.
+1. The user enters education, skills, interests, experience, and career goals.
+2. `data_processing.py` cleans, normalizes, and validates the input.
+3. The application combines the responses into one labeled profile string.
+4. The user selects MiniLM or TF-IDF as the recommendation model.
+5. `recommend_careers()` transforms the profile using the selected model.
+6. Cosine similarity compares the profile with the O*NET career records.
+7. The occupations are ranked according to their similarity scores.
+8. The interface displays the five highest-ranked career recommendations.
 
 ## Expected output
 
-Each recommendation should display:
+Each recommendation contains:
 
-- Career title
 - O*NET-SOC code
+- Career title
 - Career description
-- Recommended education level
-- Recommended experience level
+- Typical education level
+- Typical experience level
 - Similarity score
 
-The results are decision-support information, not a guarantee of employment or
-a substitute for professional career counseling. Users should remain in
-control and review multiple options before making education or career choices.
+Similarity scores represent the relationship between the user’s profile and
+the occupational text. They are matching scores, not probabilities of career
+success.
 
 ## Repository structure
 
 ```text
 Group_Project/
-├── app.py                         # Interface (Avinash)
-├── model.py                       # Ranking/model functions (Trey)
-├── data_processing.py             # Input cleaning/profile creation (Surya)
-├── config.py                      # Shared paths and application settings
-├── requirements.txt               # Reproducible Python dependencies
-├── .env.example                   # Optional local configuration template
-├── .gitignore
 ├── Model/
-│   ├── model.ipynb
-│   ├── onet_career_master.csv
-│   ├── career_tfidf_model.pkl
-│   └── career_tfidf_matrix.pkl
+│   ├── app.py                         # Integrated Gradio interface
+│   ├── model.py                       # Recommendation and ranking logic
+│   ├── model.ipynb                    # Model-development notebook
+│   ├── onet_career_master.csv         # Processed O*NET career data
+│   ├── career_tfidf_model.pkl         # Saved TF-IDF vectorizer
+│   ├── career_tfidf_matrix.pkl        # Saved TF-IDF career matrix
+│   ├── career_minilm_embeddings.npy   # Saved MiniLM career embeddings
+│   └── career_minilm_model/           # Optional locally saved MiniLM model
+├── data_processing.py                 # Input cleaning and profile creation
+├── config.py                          # Shared paths and application settings
+├── requirements.txt                   # Python dependencies
+├── .env.example                       # Optional environment configuration
+├── .gitignore
 └── tests/
     └── test_data_processing.py
 ```
 
-`app.py` and the final reusable `model.py` will be added by the assigned team
-members during integration.
+The repository may temporarily contain earlier interface copies while the
+team completes integration. `Group_Project/Model/app.py` is the currently
+integrated interface connected to `data_processing.py` and `model.py`. The
+interface-development team will confirm the final application location before
+submission.
 
 ## Setup
 
 ### Local Windows setup
 
+Clone the repository and open the project directory:
+
 ```powershell
 git clone https://github.com/lunchtrey84/MSAI_631_REPO.git
 cd MSAI_631_REPO\Group_Project
+```
+
+Create and activate a virtual environment:
+
+```powershell
 python -m venv .venv
 .venv\Scripts\activate
 python -m pip install --upgrade pip
@@ -74,25 +103,83 @@ pip install -r requirements.txt
 ```
 
 If environment overrides are needed, copy `.env.example` to `.env` and change
-only the local values. Never commit credentials or API keys.
+only the local values. Never commit credentials, access tokens, or API keys.
 
 ### Google Colab setup
 
 ```python
 !git clone https://github.com/lunchtrey84/MSAI_631_REPO.git
 %cd MSAI_631_REPO/Group_Project
+!python -m pip install --upgrade pip
 !pip install -r requirements.txt
 ```
 
-The repository must be public or Colab must be authenticated before a private
-repository can be cloned.
+The repository must be public, or Colab must be authenticated with GitHub
+before cloning a private repository.
 
-## Interface integration contract
+The final Colab launch command will be documented after the interface team
+confirms the final location and Gradio sharing configuration for `app.py`.
 
-`app.py` should use `prepare_user_profile` before calling the model:
+## Recommendation-function contract
+
+The model provides the following recommendation function:
+
+```python
+recommend_careers(
+    user_profile,
+    model_type="minilm",
+    top_n=5,
+)
+```
+
+The parameters are:
+
+- `user_profile`: One normalized text string containing the user’s information.
+- `model_type`: `"minilm"` for semantic matching or `"tfidf"` for the baseline.
+- `top_n`: Number of recommendations to return.
+
+The function returns a pandas DataFrame with these columns:
+
+```text
+O*NET-SOC Code
+Title
+Description
+Education
+Experience
+Similarity Score
+```
+
+Example:
+
+```python
+from data_processing import prepare_user_profile
+from Model.model import recommend_careers
+
+profile_text = prepare_user_profile(
+    education="Master's degree",
+    skills="leadership, communication, planning, and critical thinking",
+    interests="technology, education, and management",
+    work_experience="More than ten years of professional experience",
+    career_goals="Leadership, management, training, and technology",
+)
+
+results = recommend_careers(
+    profile_text,
+    model_type="minilm",
+    top_n=5,
+)
+
+print(results)
+```
+
+## Interface integration
+
+The interface uses `prepare_user_profile()` before calling the recommendation
+model:
 
 ```python
 from data_processing import ProfileValidationError, prepare_user_profile
+from Model.model import recommend_careers
 
 try:
     profile_text = prepare_user_profile(
@@ -103,83 +190,103 @@ try:
         career_goals=career_goals,
         additional_information=additional_information,
     )
+
+    results = recommend_careers(
+        profile_text,
+        model_type=model_type,
+        top_n=5,
+    )
+
 except ProfileValidationError as error:
-    # Display str(error) in the interface.
-    ...
-
-# Pass profile_text to the recommendation function supplied by model.py.
+    # Display the validation message in the interface.
+    print(str(error))
 ```
 
-This contract works for TF-IDF and MiniLM because both models receive the same
-normalized text. The final recommendation-function name and returned columns
-will be confirmed when `model.py` is added.
+The same normalized profile is used for TF-IDF and MiniLM, allowing the user
+to compare the two recommendation approaches.
 
-## Running and testing
+## Testing
 
-After `app.py` is added, run:
-
-```powershell
-python app.py
-```
-
-Open the local Gradio URL printed in the terminal, normally
-`http://127.0.0.1:7860`.
-
-Run the automated input-processing tests with:
+Run the automated data-processing tests from the `Group_Project` directory:
 
 ```powershell
 python -m pytest -q
 ```
 
-Suggested end-to-end test profiles:
+Suggested end-to-end test profiles include:
 
 1. A complete profile with education, skills, interests, experience, and goals.
-2. A short but valid profile containing skills and a career goal.
-3. Empty input, which should produce a clear validation message.
-4. Very long or pasted input, which should be normalized and limited safely.
-5. Different career areas to verify that rankings change with user preferences.
+2. A profile emphasizing leadership, management, training, and technology.
+3. A profile from a different career area to verify that rankings change.
+4. Empty input, which should produce an understandable validation message.
+5. Very long input, which should be normalized and limited safely.
+6. The same profile tested with MiniLM and TF-IDF for comparison.
+
+Before submission, the team should also verify:
+
+- Both model selections return five recommendations.
+- The returned columns match the application contract.
+- Empty and unsupported inputs produce understandable feedback.
+- The application displays similarity scores as matching scores.
+- The Gradio interface launches without import or path errors.
 
 ## Deployment
 
-Gradio is suitable for local execution, Google Colab demonstrations, and a
-future Hugging Face Spaces deployment. For a Space, place `app.py`, the Python
-modules, `requirements.txt`, and required model artifacts in the repository.
-Use repository secrets for any future API credentials rather than writing them
-in source files.
+Gradio supports local demonstrations and can also be configured for Google
+Colab or Hugging Face Spaces. A deployment must include the Python modules,
+`requirements.txt`, the processed O*NET dataset, and the required model
+artifacts.
+
+Future credentials or access tokens must be stored using environment variables
+or repository secrets. Credentials must never be written directly into source
+code or committed to GitHub.
 
 ## Data and model limitations
 
-- TF-IDF relies on word overlap and may miss meaning expressed with different
-  vocabulary.
-- MiniLM should improve semantic matching, but it must be evaluated against the
-  TF-IDF baseline before replacing it.
+- TF-IDF depends heavily on word overlap and may miss related concepts expressed
+  with different vocabulary.
+- MiniLM improves semantic matching, but its recommendations still depend on the
+  quality and completeness of the user profile.
 - O*NET descriptions represent occupations broadly and cannot capture every
-  individual preference, local opportunity, salary, or hiring requirement.
-- Missing fields in the source data can make some recommendations less complete.
-- Similarity scores indicate textual/model similarity, not certainty or
-  suitability.
-- Career recommendations can influence significant decisions, so the interface
-  should explain results, avoid discriminatory attributes, protect user data,
-  and allow users to revise their inputs.
+  personal preference, local opportunity, salary expectation, or employer
+  requirement.
+- Missing or incomplete fields in the source data can reduce the quality of
+  individual recommendations.
+- Similarity scores indicate model-based textual similarity, not certainty,
+  qualification, employability, or probability of success.
+- The current evaluation is based on sample profiles and model comparison, not
+  a large formal user study.
+- Career recommendations can affect important decisions, so the interface
+  should explain results, protect user information, avoid discriminatory
+  attributes, and allow users to revise their inputs.
+- Users should remain responsible for their final education and career
+  decisions.
 
 ## Team responsibilities
 
-- **Trey:** model training, recommendation/ranking logic, evaluation, and model
-  documentation.
-- **Avinash:** Gradio/Streamlit interface, validation display, and output logic.
-- **Surya:** data processing, configuration/environment files, requirements,
-  repository structure, README/setup, and integration support.
+- **Trey:** Model training, recommendation and ranking logic, evaluation, and
+  model documentation.
+- **Avinash:** Gradio/Streamlit interface, validation display, output logic,
+  usability testing, and interface-development lessons.
+- **Surya:** Data processing, configuration and environment files,
+  dependencies, repository structure, README and setup documentation, and
+  integration support.
 
 ## Technology
 
 - Python
-- pandas and NumPy
-- scikit-learn TF-IDF and cosine similarity
-- joblib model persistence
-- Gradio user interface
+- pandas
+- NumPy
+- scikit-learn
+- TF-IDF
+- Cosine similarity
+- joblib
+- Gradio
+- Sentence Transformers
+- `all-MiniLM-L6-v2`
 - O*NET 31.0 occupational data
 - Git and GitHub version control
-- Planned: sentence-transformers with `all-MiniLM-L6-v2`
+- pytest
 
 ## Contribution workflow
 
@@ -188,10 +295,9 @@ Create a branch before changing shared files:
 ```powershell
 git switch -c surya-data-processing
 git add Group_Project
-git commit -m "Add data processing setup and project documentation"
+git commit -m "Update project documentation for MiniLM integration"
 git push -u origin surya-data-processing
 ```
 
-Open a pull request for team review. Do not push directly to `main` unless the
-repository owner requests it.
-
+Open a pull request for team review. Do not modify another team member’s
+assigned source files without first coordinating with that team member.
